@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<div class="social-signup page-container">
+  <h2 class="page-title">회원 가입</h2>
+  <p>Kakao 계정으로 로그인하려 합니다. 마지막으로 이메일을 입력해주세요.</p>
+  <form method="post" class="form-group">
+    {% csrf_token %}
+    <label class="form-label" for="id_email">이메일</label>
+    {{ form.email }}
+    <button type="submit" class="btn btn-primary mt-4">회원가입</button>
+  </form>
+</div>
+{% endblock %}

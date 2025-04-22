@@ -1,0 +1,23 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}ShopEase{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/index.css' %}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <header>
+        <!-- 공통 헤더 영역 (로고, 네비게이션 등) -->
+    </header>
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    <footer>
+        <!-- 공통 푸터 영역 -->
+    </footer>
+    {% block extra_body %}{% endblock %}
+</body>
+</html> 

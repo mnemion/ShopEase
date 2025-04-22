@@ -1,0 +1,25 @@
+# Environment files
+.env
+.env.*               # e.g. .env.development, .env.local, .env.production
+
+# Python virtual envs & caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Node.js deps & build output
+node_modules/
+build/
+dist/
+
+# Database files
+*.sqlite3
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE/editor
+.vscode/
+.idea/

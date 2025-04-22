@@ -1,0 +1,20 @@
+Django==5.2
+djangorestframework==3.16.0
+djangorestframework-simplejwt==5.5.0
+django-cors-headers==4.7.0
+Pillow==11.1.0
+psycopg2-binary==2.9.10  # PostgreSQL 연결용 (또는 MySQL 사용 시 mysqlclient)
+python-dotenv==1.1.0
+drf-yasg==1.21.10  # API 문서화
+django-filter==25.1  # 고급 필터링
+redis==5.2.1  # 캐싱
+celery==5.5.1  # 비동기 작업
+django-debug-toolbar==5.1.0  # 개발용 디버깅 도구
+pytest==8.3.5  # 테스트
+pytest-django==4.11.1  # Django 테스트
+factory-boy==3.3.3  # 테스트 데이터 생성
+coverage==7.8.0  # 테스트 커버리지
+gunicorn==23.0.0  # 배포용 WSGI 서버
+sqlalchemy  # Celery 결과 백엔드용(Windows 환경)
+django-allauth==65.7.0  # 소셜 로그인
+dj-rest-auth==7.0.1  # REST API 소셜 로그인

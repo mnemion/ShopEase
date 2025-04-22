@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>로그인 중...</title>
+    <meta charset="utf-8">
+    <script>
+        function onLoad() {
+          // 백엔드 뷰에서 전달된 토큰 확인
+          const access_token = "{{ access_token }}";
+          const refresh_token = "{{ refresh_token }}";
+          const frontendOrigin = '{{ frontend_url|default:"http://localhost:3000" }}';
+          const userEmail = "{{ user_email }}"; // 디버깅용
+          const sessionKey = "{{ session_key }}"; // 디버깅용
+
+          console.log("[login_done.html] Page loaded.");
+          console.log("[login_done.html] Frontend Origin:", frontendOrigin);
+          console.log("[login_done.html] Access Token:", access_token ? access_token.substring(0, 10) + "..." : "EMPTY");
+          console.log("[login_done.html] Refresh Token:", refresh_token ? refresh_token.substring(0, 10) + "..." : "EMPTY");
+          console.log("[login_done.html] User Email:", userEmail);
+          console.log("[login_done.html] Session Key:", sessionKey);
+
+          if (!access_token || !refresh_token) {
+              console.error("[login_done.html] Error: Tokens are missing in the template!");
+              document.body.innerHTML = "<p style='color: red;'>오류: 로그인 정보를 전달받지 못했습니다. 관리자에게 문의하세요.</p>";
+              // 창을 바로 닫지 않고 오류 메시지를 보여주는 것이 좋을 수 있습니다.
+              // setTimeout(() => { window.close(); }, 5000);
+              return;
+          }
+
+          const data = {
+            type: 'social-login-success',
+            // payload 키를 사용하여 SocialLoginHandler와 구조 일치
+            payload: {
+              access_token: access_token,
+              refresh_token: refresh_token,
+              user_email: userEmail // 디버깅 정보 전달
+            }
+          };
+
+          // 부모 창(opener)이 존재하고 닫히지 않았는지 확인
+          if (window.opener && !window.opener.closed) {
+            console.log("[login_done.html] Sending postMessage to opener:", frontendOrigin);
+            // targetOrigin을 명확히 지정
+            window.opener.postMessage(data, frontendOrigin);
+            console.log("[login_done.html] postMessage sent. Closing window...");
+            // postMessage 후 잠시 기다렸다가 창 닫기 (메시지 처리 시간 확보)
+            setTimeout(() => { window.close(); }, 500); // 0.5초 후 닫기
+          } else {
+            // 부모 창이 없는 경우 (직접 접근 등) fallback 처리
+            console.warn("[login_done.html] window.opener not found or closed. Attempting fallback redirect.");
+            // Fallback: 로컬 스토리지에 임시 저장 후 리다이렉트 (권장되지는 않음)
+            try {
+              localStorage.setItem('temp_access_token', access_token);
+              localStorage.setItem('temp_refresh_token', refresh_token);
+            } catch (e) {
+              console.error("[login_done.html] Failed to set localStorage:", e);
+            }
+            window.location.href = `${frontendOrigin}/login/callback?access_token=${encodeURIComponent(access_token)}&refresh_token=${encodeURIComponent(refresh_token)}`;
+          }
+        }
+        // DOM 로드 완료 후 실행 보장
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', onLoad);
+        } else {
+            onLoad();
+        }
+    </script>
+</head>
+<body>
+    <p>로그인 처리 중입니다. 잠시만 기다려주세요...</p>
+    <!-- 디버깅 정보 표시 (선택 사항) -->
+    <div style="display: none;">
+      <p>Access Token: {{ access_token|slice:":10" }}...</p>
+      <p>Refresh Token: {{ refresh_token|slice:":10" }}...</p>
+      <p>Frontend URL: {{ frontend_url }}</p>
+    </div>
+</body>
+</html>
