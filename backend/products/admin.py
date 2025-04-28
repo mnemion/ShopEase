@@ -2,6 +2,9 @@ from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 from django.utils.html import format_html
 from .models import Category, Product, ProductImage, Review
+from django import forms
+from django.core.exceptions import ValidationError
+from mptt.admin import MPTTModelAdmin
 
 class ProductImageInline(admin.TabularInline):
     """상품 이미지 인라인 어드민"""
@@ -26,23 +29,41 @@ class ReviewInline(admin.TabularInline):
     can_delete = False
     max_num = 10
 
+class CategoryAdminForm(forms.ModelForm):
+    class Meta:
+        model = Category
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # ① parent 필드에 루트만 노출
+        root_qs = Category.objects.filter(parent__isnull=True)
+        self.fields["parent"].queryset = root_qs
+
+        # ② 이미 저장된 카테고리를 수정할 땐
+        #    현재 선택돼 있던 값(루트가 아닐 수도 있음)을 같이 보여줘야 오류가 안 난다
+        if self.instance.pk and self.instance.parent:
+            self.fields["parent"].queryset |= Category.objects.filter(pk=self.instance.parent.pk)
+
+    def clean_parent(self):
+        parent = self.cleaned_data.get("parent")
+
+        # ③ 루트가 아닌 노드를 상위로 고르려 하면 차단
+        if parent and parent.parent:
+            raise ValidationError("상위 카테고리는 최상위 카테고리만 선택할 수 있습니다.")
+        return parent
+
 @admin.register(Category)
-class CategoryAdmin(admin.ModelAdmin):
-    """카테고리 관리 어드민"""
-    list_display = ('name', 'slug', 'parent', 'is_active', 'order', 'created_at')
-    list_filter = ('is_active', 'parent', 'created_at')
-    search_fields = ('name', 'slug', 'description')
-    prepopulated_fields = {'slug': ('name',)}
-    list_editable = ('is_active', 'order')
-    
-    fieldsets = (
-        (None, {
-            'fields': ('name', 'slug', 'description', 'parent')
-        }),
-        (_('표시 설정'), {
-            'fields': ('is_active', 'order', 'image')
-        }),
-    )
+class CategoryAdmin(MPTTModelAdmin):
+    form                = CategoryAdminForm
+    autocomplete_fields = ["parent"]
+    list_display        = ("name", "slug", "parent", "is_active", "order")
+    list_select_related = ("parent",)
+    search_fields       = ("name", "slug")
+    list_filter         = ("is_active",)
+    mptt_level_indent   = 20
+    show_tree           = False
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
@@ -62,7 +83,7 @@ class ProductAdmin(admin.ModelAdmin):
             'fields': ('price', 'discount_price', 'stock')
         }),
         (_('표시 설정'), {
-            'fields': ('is_active', 'is_featured')
+            'fields': ('is_active', 'is_featured') 
         }),
     )
     

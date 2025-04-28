@@ -4,6 +4,7 @@ from datetime import timedelta
 from dotenv import load_dotenv
 import platform
 from corsheaders.defaults import default_headers
+import warnings
 
 # .env 파일 로드
 load_dotenv()
@@ -29,6 +30,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.sites',  # django-allauth에 필요
+    'mptt',
     
     # 써드파티 앱
     'rest_framework',
@@ -106,12 +108,15 @@ WSGI_APPLICATION = 'shopease.wsgi.application'
 # ASGI 설정 추가
 ASGI_APPLICATION = 'shopease.asgi.application'
 
-# Database
-# 기본은 SQLite, 프로덕션에서는 PostgreSQL 등으로 변경
+# 데이터베이스 설정
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+        'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.sqlite3'),
+        'NAME': os.getenv('DB_NAME', os.path.join(BASE_DIR, 'db.sqlite3')),
+        'USER': os.getenv('DB_USER', ''),
+        'PASSWORD': os.getenv('DB_PASSWORD', ''),
+        'HOST': os.getenv('DB_HOST', ''),
+        'PORT': os.getenv('DB_PORT', ''),
     }
 }
 
@@ -196,10 +201,12 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
 ]
 CORS_ALLOW_CREDENTIALS = True
+
+# 쿠키 보안 설정 (운영 환경에서는 반드시 True)
 SESSION_COOKIE_SAMESITE = 'Lax'
-SESSION_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False  # 운영 환경에서는 True로 변경
 CSRF_COOKIE_SAMESITE = 'Lax'
-CSRF_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False    # 운영 환경에서는 True로 변경
 
 # CORS 허용 헤더에 cache-control 추가
 CORS_ALLOW_HEADERS = list(default_headers) + [
@@ -279,7 +286,7 @@ REST_AUTH = {
 }
 
 # 수정할 부분: FRONTEND_URL 추가
-FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+FRONTEND_URL = "http://localhost:3000"
 
 # 소셜 프로바이더 설정 수정
 SOCIALACCOUNT_PROVIDERS = {
@@ -320,3 +327,11 @@ CHANNEL_LAYERS = {
 
 # 팝업 → 부모창 opener 관계를 유지하려면… 
 SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin-allow-popups"
+
+warnings.filterwarnings(
+    "ignore",
+    message="StreamingHttpResponse must consume synchronous iterators",
+    module="django.core.handlers.asgi",
+)
+
+CSRF_TRUSTED_ORIGINS = ["http://localhost:3000"]

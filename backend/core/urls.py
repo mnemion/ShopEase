@@ -4,6 +4,7 @@ from . import views
 from rest_framework_simplejwt.views import TokenRefreshView
 # from .views_oauth import GoogleLoginDoneView, KakaoLoginDoneView, NaverLoginDoneView  # 제거
 from .views import GoogleLoginView, KakaoLoginView, NaverLoginView
+from .views import CookieTokenObtainPairView, CookieTokenRefreshView
 # from django.views.generic import TemplateView  # 사용 안 함
 
 app_name = 'core'
@@ -17,8 +18,9 @@ urlpatterns = [
     # ViewSet 라우트
     path('', include(router.urls)),
     
-    # JWT 토큰 갱신
-    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    # JWT 토큰 갱신 (쿠키 기반)
+    path('token/', CookieTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('token/refresh/', CookieTokenRefreshView.as_view(), name='token_refresh'),
     
     # 소셜 로그인 엔드포인트 (API 요청 받아 allauth로 보내는 역할, 유지)
     path('auth/google/', GoogleLoginView.as_view(), name='google_login'),

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useReducer } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getProfile, updateProfile, getAddresses, addAddress, updateAddress, deleteAddress } from '../api/auth';
-import { validateRequired, validatePhone, validateZipCode } from '../utils/validators';
+import { getProfile, updateProfile, getAddresses, addAddress, updateAddress, deleteAddress, patchAddress } from '../api/auth';
+import { validateRequired, validatePhone } from '../utils/validators';
 import Button from '../components/ui/Button';
 import Loading from '../components/ui/Loading';
 import { toast } from 'react-toastify';
@@ -160,7 +160,7 @@ const Profile = () => {
   const handleSetDefaultAddress = async (addressId) => {
     addressDispatch({ type: 'SET_PROCESSING', id: addressId + '-setDefault' });
     try {
-      const updated = await updateAddress(addressId, { is_default: true });
+      await updateAddress(addressId, { is_default: true });
       addressDispatch({ type: 'SET_DEFAULT_ADDRESS', id: addressId });
       toast.success('기본 배송지가 변경되었습니다.');
     } catch (error) {
@@ -177,7 +177,7 @@ const Profile = () => {
     try {
       let updatedAddress;
       if (addressState.editingAddress) {
-        updatedAddress = await updateAddress(addressState.editingAddress.id, form);
+        updatedAddress = await patchAddress(addressState.editingAddress.id, form);
         addressDispatch({ type: 'UPDATE_ADDRESS', address: updatedAddress });
         toast.success('배송지가 수정되었습니다.');
       } else {

@@ -57,3 +57,9 @@ export const deleteReview = async (reviewId) => {
   const response = await apiClient.delete(`/products/reviews/${reviewId}/`);
   return response.data;
 };
+
+// 카테고리 트리 조회 API
+export const getCategoryTree = async () => {
+  const response = await apiClient.get('/products/categories/tree/');
+  return response.data;
+}

@@ -7,7 +7,8 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-  }
+  },
+  withCredentials: true, // 쿠키 자동 전송
 });
 
 // 토큰 갱신 요청을 위한 별도 인스턴스 (무한 루프 방지)
@@ -17,23 +18,20 @@ const refreshClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-  }
+  },
+  withCredentials: true, // 쿠키 자동 전송
 });
 
 // 토큰 갱신 함수
 const refreshAccessToken = async () => {
   try {
-    const refreshToken = localStorage.getItem('refresh_token');
-    if (!refreshToken) throw new Error('No refresh token available');
-    
-    const response = await refreshClient.post('/users/token/refresh/', { refresh: refreshToken });
+    // refresh token은 쿠키에서 자동 전송됨
+    const response = await refreshClient.post('/token/refresh/');
     const { access } = response.data;
-    
     localStorage.setItem('access_token', access);
     return access;
   } catch (error) {
     localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
     throw error;
   }
 };
@@ -120,5 +118,8 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+apiClient.defaults.xsrfCookieName = 'csrftoken';
+apiClient.defaults.xsrfHeaderName = 'X-CSRFToken';
 
 export default apiClient;

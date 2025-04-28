@@ -47,6 +47,24 @@ React와 Django를 사용한 모던한 풀스택 온라인 쇼핑몰 프로젝�
 - **TailwindCSS** - 스타일링
 - **React Toastify** - 알림 컴포넌트
 
+## 보안 및 .gitignore
+프로젝트에 민감 정보를 포함하는 파일(.env 등)과 빌드/종속성 폴더(node_modules/, build/ 등), IDE 설정 등을 Git에 커밋하지 않으려면, 프로젝트 루트에 `.gitignore` 파일을 만들고 아래 내용을 추가하세요:
+```gitignore
+.env
+.env.*
+.venv/
+venv/
+__pycache__/
+node_modules/
+build/
+dist/
+*.sqlite3
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+```
+
 ## 프로젝트 설정 및 실행 방법
 
 ### 사전 요구사항

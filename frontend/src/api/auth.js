@@ -21,7 +21,7 @@ export const logout = async (refreshToken) => {
 // 내 정보 조회 API
 export const getProfile = async () => {
   try {
-    const response = await apiClient.get('/users/users/me/');
+    const response = await apiClient.get('/users/me/');
     return response.data;
   } catch (error) {
     console.error('Failed to fetch profile:', error);
@@ -37,25 +37,31 @@ export const updateProfile = async (profileData) => {
 
 // 배송지 목록 조회 API
 export const getAddresses = async () => {
-  const response = await apiClient.get('/users/addresses/');
+  const response = await apiClient.get('/addresses/');
   return response.data;
 };
 
 // 배송지 추가 API
 export const addAddress = async (addressData) => {
-  const response = await apiClient.post('/users/addresses/', addressData);
+  const response = await apiClient.post('/addresses/', addressData);
   return response.data;
 };
 
-// 배송지 수정 API
+// 배송지 수정 API (PUT)
 export const updateAddress = async (id, addressData) => {
-  const response = await apiClient.put(`/users/addresses/${id}/`, addressData);
+  const response = await apiClient.put(`/addresses/${id}/`, addressData);
+  return response.data;
+};
+
+// 배송지 수정 API (PATCH)
+export const patchAddress = async (id, addressData) => {
+  const response = await apiClient.patch(`/addresses/${id}/`, addressData);
   return response.data;
 };
 
 // 배송지 삭제 API
 export const deleteAddress = async (id) => {
-  const response = await apiClient.delete(`/users/addresses/${id}/`);
+  const response = await apiClient.delete(`/addresses/${id}/`);
   return response.data;
 };
 

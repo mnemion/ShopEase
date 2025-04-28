@@ -96,3 +96,17 @@ class ProductDetailSerializer(ProductSerializer):
     def get_review_count(self, obj):
         """리뷰 개수를 반환"""
         return obj.reviews.count()
+
+class CategoryTreeSerializer(serializers.ModelSerializer):
+    """카테고리 트리 시리얼라이저 - 자식 노드를 재귀적으로 포함"""
+    children = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Category
+        fields = ("id", "name", "slug", "children")
+
+    def get_children(self, obj):
+        """자식 카테고리를 재귀적으로 시리얼라이즈"""
+        return CategoryTreeSerializer(
+            obj.children.filter(is_active=True).order_by("order"), many=True
+        ).data

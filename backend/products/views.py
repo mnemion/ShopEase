@@ -2,7 +2,7 @@ from rest_framework import viewsets, filters, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend, FilterSet, NumberFilter, CharFilter, BooleanFilter
-from django.db.models import Q
+from django.db.models import F
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from django.views.decorators.vary import vary_on_cookie
@@ -11,7 +11,8 @@ from .serializers import (
     CategorySerializer, 
     ProductSerializer, 
     ProductDetailSerializer,
-    ReviewSerializer
+    ReviewSerializer,
+    CategoryTreeSerializer
 )
 
 class ProductFilter(FilterSet):
@@ -21,6 +22,7 @@ class ProductFilter(FilterSet):
     category_name = CharFilter(field_name="category__name", lookup_expr='icontains')
     is_featured = BooleanFilter(field_name="is_featured")
     is_on_sale = BooleanFilter(method='filter_is_on_sale')
+    parent = NumberFilter(method='filter_parent')
     
     class Meta:
         model = Product
@@ -29,15 +31,57 @@ class ProductFilter(FilterSet):
     def filter_is_on_sale(self, queryset, name, value):
         """할인 중인 상품 필터링"""
         if value:
-            return queryset.filter(discount_price__isnull=False).filter(discount_price__lt=Q(price))
+            return queryset.filter(discount_price__isnull=False).filter(discount_price__lt=F('price'))
         return queryset
+    
+    def filter_parent(self, queryset, name, value):
+        """부모 카테고리 ID로 필터링 (자손 포함)"""
+        try:
+            parent = Category.objects.get(pk=value)
+            descendants = parent.get_descendants(include_self=True)
+            return queryset.filter(category__in=descendants)
+        except Category.DoesNotExist:
+            return queryset.none()
 
 class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
     """카테고리 조회 API"""
-    queryset = Category.objects.filter(is_active=True)
+    queryset = Category.objects.filter(is_active=True)\
+        .select_related("parent")\
+        .only("id", "name", "slug", "parent_id", "order", "image")
     serializer_class = CategorySerializer
     permission_classes = [permissions.AllowAny]
     
+    def get_queryset(self):
+        qs = super().get_queryset()
+        parent = self.request.query_params.get('parent')
+        if parent is None:
+            # 루트만
+            return qs.filter(parent__isnull=True).order_by('order')
+        return qs.filter(parent_id=parent).order_by('order')
+
+    @action(detail=True, methods=['get'])
+    def children(self, request, pk=None):
+        """
+        /api/categories/{pk}/children/
+        해당 카테고리의 바로 밑 자식들만
+        """
+        node = self.get_object()
+        qs = node.children.filter(is_active=True).order_by('order')
+        page = self.paginate_queryset(qs)
+        serializer = self.get_serializer(page, many=True)
+        return self.get_paginated_response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="tree")
+    @method_decorator(cache_page(60 * 60))  # 1시간 캐싱
+    def tree(self, request):
+        """
+        /api/categories/tree/
+        전체 카테고리 트리 구조 반환
+        """
+        qs = Category.objects.filter(parent__isnull=True, is_active=True).order_by("order")
+        serializer = CategoryTreeSerializer(qs, many=True)
+        return Response(serializer.data)
+
     # 카테고리 리스트 캐싱 (1시간)
     @method_decorator(cache_page(60 * 60))
     def list(self, request, *args, **kwargs):
@@ -109,7 +153,7 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
         on_sale_products = self.get_queryset().filter(
             discount_price__isnull=False
         ).filter(
-            discount_price__lt=Q(price)
+            discount_price__lt=F('price')
         )[:8]
         serializer = self.get_serializer(on_sale_products, many=True)
         return Response(serializer.data)

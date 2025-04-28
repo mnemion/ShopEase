@@ -1,18 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
-import { getProducts, getCategories } from '../api/products';
+import { getProducts, getCategoryTree } from '../api/products';
 import ProductList from '../components/product/ProductList';
-import Loading from '../components/ui/Loading';
-import Button from '../components/ui/Button';
+import CategoryFilter from '../components/ui/CategoryFilter';
+import { useCategoryStore } from '../stores/useCategoryStore';
 
 const ProductListPage = () => {
   const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const { tree, selectedParent, selectedChild, selectParent } = useCategoryStore();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [selectedCategory, setSelectedCategory] = useState(null);
   const [sortBy, setSortBy] = useState('-created_at'); // 기본 정렬: 최신순
   const [priceRange, setPriceRange] = useState({ min: '', max: '' });
   const [searchQuery, setSearchQuery] = useState('');
@@ -56,24 +55,22 @@ const ProductListPage = () => {
     // URL에서 카테고리 ID 가져오기 (URL path 파라미터)
     const categoryId = params.categoryId;
     if (categoryId) {
-      setSelectedCategory(parseInt(categoryId));
+      selectParent(parseInt(categoryId));
     } else {
-      setSelectedCategory(null);
+      selectParent(null);
     }
-  }, [location.search, params.categoryId]);
+  }, [location.search, params.categoryId, selectParent]);
   
-  // 카테고리 데이터 가져오기
+  // 카테고리 트리 데이터 프리패치
   useEffect(() => {
-    const fetchCategories = async () => {
+    (async () => {
       try {
-        const response = await getCategories();
-        setCategories(response.results);
+        const treeData = await getCategoryTree();
+        useCategoryStore.getState().setTree(treeData);
       } catch (error) {
-        console.error('카테고리 로드 실패:', error);
+        console.error('카테고리 트리 로드 실패:', error);
       }
-    };
-    
-    fetchCategories();
+    })();
   }, []);
   
   // 상품 데이터 가져오기
@@ -81,39 +78,26 @@ const ProductListPage = () => {
     const fetchProducts = async () => {
       setIsLoading(true);
       setError(null);
-      
       try {
         // API 요청 파라미터 구성
-        const params = {
-          page: currentPage,
-          ordering: sortBy,
-        };
-        
-        // 카테고리 필터링
-        if (selectedCategory) {
-          params.category = selectedCategory;
+        const params = { page: currentPage, ordering: sortBy };
+        // 카테고리 필터링: 자식 우선, 없으면 부모
+        if (selectedChild) {
+          params.category = selectedChild;
+        } else if (selectedParent) {
+          params.parent = selectedParent;
         }
-        
         // 검색어
-        if (searchQuery) {
-          params.search = searchQuery;
-        }
-        
+        if (searchQuery) params.search = searchQuery;
         // 가격 범위
-        if (priceRange.min) {
-          params.min_price = priceRange.min;
-        }
-        if (priceRange.max) {
-          params.max_price = priceRange.max;
-        }
-        
+        if (priceRange.min) params.min_price = priceRange.min;
+        if (priceRange.max) params.max_price = priceRange.max;
+
         // API 호출
         const response = await getProducts(params);
-        
         setProducts(response.results);
-        
         // 페이지네이션 정보 설정
-        setTotalPages(Math.ceil(response.count / 10)); // 한 페이지당 10개 상품 표시 가정
+        setTotalPages(Math.ceil(response.count / 10));
       } catch (error) {
         console.error('상품 로드 실패:', error);
         setError('상품 정보를 불러오는데 실패했습니다.');
@@ -121,9 +105,8 @@ const ProductListPage = () => {
         setIsLoading(false);
       }
     };
-    
     fetchProducts();
-  }, [currentPage, sortBy, selectedCategory, searchQuery, priceRange.min, priceRange.max]);
+  }, [currentPage, sortBy, selectedParent, selectedChild, searchQuery, priceRange.min, priceRange.max]);
   
   // 정렬 옵션 변경 핸들러
   const handleSortChange = (e) => {
@@ -132,20 +115,6 @@ const ProductListPage = () => {
     
     // URL 쿼리 파라미터 업데이트
     updateQueryParams({ ordering: newSortBy, page: 1 });
-  };
-  
-  // 카테고리 변경 핸들러
-  const handleCategoryChange = (categoryId) => {
-    if (categoryId === 'all') {
-      setSelectedCategory(null);
-      navigate('/products');
-    } else {
-      setSelectedCategory(parseInt(categoryId));
-      navigate(`/categories/${categoryId}`);
-    }
-    
-    // 페이지 초기화
-    updateQueryParams({ page: 1 });
   };
   
   // 가격 범위 입력 핸들러
@@ -198,7 +167,7 @@ const ProductListPage = () => {
   // 필터 초기화 핸들러
   const handleResetFilters = () => {
     navigate('/products');
-    setSelectedCategory(null);
+    selectParent(null);
     setSortBy('-created_at');
     setPriceRange({ min: '', max: '' });
     setSearchQuery('');
@@ -210,8 +179,8 @@ const ProductListPage = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">
-            {selectedCategory
-              ? categories.find(cat => cat.id === selectedCategory)?.name || '상품 목록'
+            {selectedChild
+              ? tree.find(cat => cat.id === selectedChild)?.name || '상품 목록'
               : searchQuery
                 ? `"${searchQuery}" 검색 결과`
                 : '전체 상품'}
@@ -242,41 +211,8 @@ const ProductListPage = () => {
                 </form>
               </div>
               
-              {/* 카테고리 필터 */}
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">카테고리</h3>
-                <div className="space-y-2">
-                  <div className="flex items-center">
-                    <input
-                      id="category-all"
-                      name="category"
-                      type="radio"
-                      checked={!selectedCategory}
-                      onChange={() => handleCategoryChange('all')}
-                      className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300"
-                    />
-                    <label htmlFor="category-all" className="ml-3 text-sm text-gray-700">
-                      전체
-                    </label>
-                  </div>
-                  
-                  {categories.map((category) => (
-                    <div key={category.id} className="flex items-center">
-                      <input
-                        id={`category-${category.id}`}
-                        name="category"
-                        type="radio"
-                        checked={selectedCategory === category.id}
-                        onChange={() => handleCategoryChange(category.id)}
-                        className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300"
-                      />
-                      <label htmlFor={`category-${category.id}`} className="ml-3 text-sm text-gray-700">
-                        {category.name}
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              {/* 카테고리 트리 필터 */}
+              <CategoryFilter />
               
               {/* 가격 범위 필터 */}
               <div>

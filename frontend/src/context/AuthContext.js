@@ -14,45 +14,37 @@ export const AuthProvider = ({ children }) => {
   // 로컬 스토리지에서 토큰 가져오기
   const getTokens = () => {
     const access = localStorage.getItem('access_token');
-    const refresh = localStorage.getItem('refresh_token');
-    return { access, refresh };
+    return { access };
   };
 
   // 토큰 저장하기
-  const setTokens = (access, refresh) => {
+  const setTokens = (access) => {
     localStorage.setItem('access_token', access);
-    localStorage.setItem('refresh_token', refresh);
   };
 
   // 토큰 제거하기
   const removeTokens = () => {
     localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
   };
 
   // 액세스 토큰 갱신 함수
   const refreshAccessToken = async () => {
     try {
-      const refresh = localStorage.getItem('refresh_token');
-      if (!refresh) throw new Error('No refresh token available');
-      
-      const response = await apiClient.post('/users/token/refresh/', { refresh });
+      // refresh token은 쿠키에서 자동 전송됨
+      const response = await apiClient.post('/users/token/refresh/');
       const { access } = response.data;
-      
-      // 새 액세스 토큰 저장
       localStorage.setItem('access_token', access);
       return access;
     } catch (error) {
       console.error('Failed to refresh token:', error);
-      // 토큰 갱신 실패시 로그아웃 처리
       logout();
       throw error;
     }
   };
 
   // 로그인 처리
-  const login = (access, refresh, userData) => {
-    setTokens(access, refresh);
+  const login = (access, _refresh, userData) => {
+    setTokens(access);
     setUser(userData);
     setIsAuthenticated(true);
     setError(null);
@@ -63,11 +55,8 @@ export const AuthProvider = ({ children }) => {
     removeTokens();
     setUser(null);
     setIsAuthenticated(false);
-    // 세션/로컬스토리지 추가 정리
     sessionStorage.clear();
     localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    // 모든 쿠키 삭제 (간단 버전)
     document.cookie.split(';').forEach(function(c) {
       document.cookie = c.replace(/^ +/, '').replace(/=.*/, '=;expires=' + new Date().toUTCString() + ';path=/');
     });
@@ -82,41 +71,40 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const checkAuth = async () => {
       setIsLoading(true);
-      const { access, refresh } = getTokens();
-      
-      if (!access || !refresh) {
-        setIsLoading(false);
-        return;
-      }
-      
+      const { access } = getTokens();
       try {
-        // 먼저 현재 액세스 토큰으로 사용자 정보 요청 시도
-        try {
+        if (access) {
+          // access 토큰이 있으면 바로 프로필 조회
           const userData = await getProfile();
           setUser(userData);
           setIsAuthenticated(true);
-        } catch (profileError) {
-          // 액세스 토큰이 만료된 경우 갱신 시도
-          if (profileError.response && (profileError.response.status === 401 || profileError.response.status === 403)) {
-            await refreshAccessToken();
-            
-            // 갱신된 토큰으로 다시 사용자 정보 요청
-            const userData = await getProfile();
-            setUser(userData);
-            setIsAuthenticated(true);
-          } else {
-            throw profileError;
-          }
+        } else {
+          // access 토큰이 없으면 refresh 토큰(쿠키)로 재발급 시도
+          await refreshAccessToken();
+          const userData = await getProfile();
+          setUser(userData);
+          setIsAuthenticated(true);
         }
       } catch (err) {
         console.error('인증 확인 실패:', err);
-        logout(); // 모든 오류 시 로그아웃
+        logout();
       } finally {
         setIsLoading(false);
       }
     };
-    
     checkAuth();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        await apiClient.post('/users/token/refresh/');
+      } catch (e) {
+        logout();
+      }
+    }, 14 * 60 * 1000);
+    return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

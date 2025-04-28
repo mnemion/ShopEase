@@ -16,6 +16,7 @@ import OrderDetail from './pages/OrderDetail';
 import Profile from './pages/Profile';
 import NotFound from './pages/NotFound';
 import SocialLoginCallback from './pages/SocialLoginCallback';
+import OAuthRedirect from './pages/OAuthRedirect';
 
 // 인증이 필요한 라우트를 위한 컴포넌트
 const PrivateRoute = ({ children }) => {
@@ -36,7 +37,8 @@ const AppRoutes = () => {
       <Route path="/products/:id" element={<ProductDetail />} />
       <Route path="/categories/:categoryId" element={<ProductList />} />
       
-      {/* 소셜 로그인 콜백 처리 라우트 */}
+      {/* 인증이 필요한 라우트 */}
+      <Route path="/login/:provider" element={<OAuthRedirect />} />
       <Route path="/login/callback/:provider" element={<SocialLoginCallback />} />
       
       {/* 이전 콜백 라우트 (기존 호환성을 위해 유지) */}

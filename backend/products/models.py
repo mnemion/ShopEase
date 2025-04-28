@@ -2,14 +2,24 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import MinValueValidator
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from mptt.models import MPTTModel, TreeForeignKey
+from django.db.models import Q, CheckConstraint, Index
 
-class Category(models.Model):
+class Category(MPTTModel):
     """상품 카테고리 모델"""
     name = models.CharField(_('카테고리명'), max_length=100)
     slug = models.SlugField(_('슬러그'), max_length=100, unique=True)
     description = models.TextField(_('설명'), blank=True)
     image = models.ImageField(_('이미지'), upload_to='categories/', blank=True, null=True)
-    parent = models.ForeignKey('self', verbose_name=_('상위 카테고리'), on_delete=models.SET_NULL, null=True, blank=True, related_name='children')
+    parent = TreeForeignKey(
+        'self',
+        verbose_name=_('상위 카테고리'),
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='children',
+        limit_choices_to={'parent__isnull': True},
+    )
     is_active = models.BooleanField(_('활성화 여부'), default=True)
     order = models.IntegerField(_('정렬 순서'), default=0)
     created_at = models.DateTimeField(_('생성일'), auto_now_add=True)
@@ -19,9 +29,35 @@ class Category(models.Model):
         verbose_name = _('카테고리')
         verbose_name_plural = _('카테고리 목록')
         ordering = ['order', 'name']
+        constraints = [
+            CheckConstraint(
+                name="category_max_depth_2",
+                check=Q(level__lte=1)
+            ),
+            models.UniqueConstraint(
+                fields=["parent", "name"],
+                name="uniq_sibling_name"
+            ),
+        ]
+        indexes = [
+            Index(fields=["parent", "order"]),
+            Index(fields=["slug"]),
+        ]
+    
+    class MPTTMeta:
+        order_insertion_by = ['order', 'name']
     
     def __str__(self):
         return self.name
+
+    def clean(self):
+        super().clean()
+        # 자기 자신을 부모로 지정했는지
+        if self.parent_id and self.parent_id == self.id:
+            raise ValidationError({'parent': '본인을 상위 카테고리로 설정할 수 없습니다.'})
+        # 부모-자식 2단계 초과 차단
+        if self.parent and self.parent.parent:
+            raise ValidationError({'parent': '카테고리는 최대 2단계(부모-자식)까지만 허용됩니다.'})
 
 class Product(models.Model):
     """상품 모델"""

@@ -23,6 +23,8 @@ import jwt
 import requests
 import logging
 from django.template.loader import render_to_string
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 
 User = get_user_model()
 
@@ -60,12 +62,17 @@ class LogoutView(APIView):
     
     def post(self, request):
         try:
-            refresh_token = request.data["refresh"]
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-            return Response(status=status.HTTP_205_RESET_CONTENT)
+            refresh_token = request.data.get("refresh")
+            if refresh_token:
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+            response = Response(status=status.HTTP_205_RESET_CONTENT)
+            response.delete_cookie('refresh_token')
+            return response
         except Exception as e:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
+            response = Response(status=status.HTTP_400_BAD_REQUEST)
+            response.delete_cookie('refresh_token')
+            return response
 
 class AddressListCreateView(generics.ListCreateAPIView):
     """배송지 목록 조회 및 생성 API"""
@@ -227,3 +234,69 @@ def social_login_success(request):
     }
     html = render_to_string('socialaccount/login_done.html', context)
     return HttpResponse(html, content_type='text/html; charset=utf-8')
+
+class CookieTokenObtainPairView(TokenObtainPairView):
+    serializer_class = TokenObtainPairSerializer
+
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        refresh = response.data.get('refresh')
+        access = response.data.get('access')
+        if refresh:
+            response.set_cookie(
+                'refresh_token',
+                refresh,
+                httponly=True,
+                secure=True,      # HTTPS 환경에서만 True
+                samesite='Lax',   # 또는 'Strict'
+                path='/',
+                max_age=14 * 24 * 60 * 60,  # 14일
+            )
+            del response.data['refresh']
+        if access:
+            response.set_cookie(
+                'access_token',
+                access,
+                httponly=True,
+                secure=True,
+                samesite='Lax',
+                path='/',
+                max_age=5 * 60,  # 5분(예시)
+            )
+        return response
+
+class CookieTokenRefreshView(TokenRefreshView):
+    serializer_class = TokenRefreshSerializer
+
+    def post(self, request, *args, **kwargs):
+        refresh = request.COOKIES.get('refresh_token')
+        if not refresh:
+            return Response({'detail': 'Refresh token not found in cookies.'}, status=401)
+        data = request.data.copy()
+        data['refresh'] = refresh
+        request._full_data = data
+        response = super().post(request, *args, **kwargs)
+        new_refresh = response.data.get('refresh')
+        access = response.data.get('access')
+        if new_refresh:
+            response.set_cookie(
+                'refresh_token',
+                new_refresh,
+                httponly=True,
+                secure=True,
+                samesite='Lax',
+                path='/',
+                max_age=14 * 24 * 60 * 60,
+            )
+            del response.data['refresh']
+        if access:
+            response.set_cookie(
+                'access_token',
+                access,
+                httponly=True,
+                secure=True,
+                samesite='Lax',
+                path='/',
+                max_age=5 * 60,  # 5분(예시)
+            )
+        return response

@@ -8,6 +8,9 @@ from drf_yasg import openapi
 from django.views.generic import TemplateView
 from core.views import social_login_callback_view
 
+# 사이트 보기 링크만 덮어쓰기
+admin.site.site_url = settings.FRONTEND_URL
+
 schema_view = get_schema_view(
    openapi.Info(
       title="ShopEase API",
@@ -40,8 +43,9 @@ urlpatterns = [
     # path('accounts/naver/login/callback/',  FixedNaverCallbackView.as_view(),  name='naver_callback'),
 
     # 4) 나머지 API (core/router)
-    path("api/", include("core.urls")),
-    path("admin/", admin.site.urls),
+    path("api/", include("core.urls")),  # /api/users/, /api/users/me/ 등
+
+    path('admin/', admin.site.urls),
 
     # API 앱 라우트 (core.urls는 /api/ 아래로만 둔다)
     path('api/products/', include('products.urls')),
