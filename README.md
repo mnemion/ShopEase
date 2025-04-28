@@ -147,7 +147,7 @@ celery -A shopease beat --loglevel=info
 
 1. 패키지 설치
 ```bash
-cd ShopEase/src
+cd ShopEase/frontend
 npm install
 ```
 
